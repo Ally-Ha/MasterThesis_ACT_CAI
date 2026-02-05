@@ -30,7 +30,7 @@ lora:
 
 # Dataset Configuration
 data:
-  dataset_id: ShenLab/MentalHealth16K
+  dataset_id: ShenLab/MentalChat16K
   dataset_config: null
   dataset_split: train
   test_split_size: 1000
