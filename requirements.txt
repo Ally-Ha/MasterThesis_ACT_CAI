@@ -1,0 +1,30 @@
+# Core dependencies
+accelerate>=1.9.0
+bitsandbytes>=0.46.1
+datasets>=4.0.0
+deepspeed>=0.17.2
+huggingface-hub>=0.33.4,<1.0
+numpy>=1.24.2
+packaging>=23.0
+peft>=0.16.0
+safetensors>=0.5.3
+sentencepiece>=0.2.0
+torch>=2.6.0
+transformers>=4.53.3
+trl>=0.19.1
+
+# Unsloth for efficient training
+unsloth[colab-new]>=2024.8
+
+# Hyperparameter optimization
+optuna>=3.5.0
+
+# Experiment tracking
+wandb
+
+# Utilities
+jinja2>=3.0.0
+tqdm>=4.64.1
+scipy
+tensorboard
+PyYAML>=6.0
