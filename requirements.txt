@@ -11,13 +11,11 @@ safetensors>=0.5.3
 sentencepiece>=0.2.0
 torch>=2.6.0
 transformers>=4.53.3
+openai>=1.0.0
 trl>=0.19.1
 
 # Unsloth for efficient training
 unsloth[colab-new]>=2024.8
-
-# Hyperparameter optimization
-optuna>=3.5.0
 
 # Experiment tracking
 wandb

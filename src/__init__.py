@@ -27,6 +27,14 @@ from .sft import (
     run_hpo,
 )
 
+from .questionnaires import (
+    AI_JUDGE_PROMPT, 
+    ACT_SQ, 
+    MentalHealth16K_Metrics, 
+    FORMATTING_REMINDER, 
+    CLEANUP_PROMPT, 
+)
+
 __all__ = [
     # Configs
     "ModelConfig",
@@ -48,6 +56,12 @@ __all__ = [
     "create_trainer",
     "train",
     "run_hpo",
+    #evaluation 
+    "AI_JUDGE_PROMPT", 
+    "ACT_SQ", 
+    "MentalHealth16K_Metrics",
+    "FORMATTING_REMINDER", 
+    "CLEANUP_PROMPT", 
 ]
 
 __version__ = "0.1.0"

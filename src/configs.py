@@ -36,12 +36,30 @@ class LoraConfig:
 @dataclass
 class DataConfig:
     """Dataset configuration."""
-    dataset_id: str = "ShenLab/MentalHealth16K"
+    dataset_id: str = "ShenLab/MentalChat16K"
     dataset_config: Optional[str] = "default"
     dataset_split: str = "train"
-    test_split_size: int = 800
+    test_split_ratio: float = 0.2
     seed: int = 42
     num_proc: int = 12
+
+
+@dataclass
+class GenerationConfig:
+    """Data generation configuration."""
+    model: str = "gpt-5.1-2025-11-13"
+    reasoning_level: str = "medium"
+    verbosity_level: str = "high"
+    max_output_tokens: int = 500
+    delay: float = 0.3
+    # HuggingFace Hub
+    hf_username: str = "your-hf-username"
+    repo_generic: str = "mentalchat16k-generic-responses"
+    repo_constitution: str = "mentalchat16k-constitution-responses"
+    # Output paths
+    output_dir: str = "Data/responses"
+    generic_csv: str = "response_generic.csv"
+    constitution_csv: str = "response_constitution.csv"
 
 
 @dataclass
@@ -89,6 +107,7 @@ class SFTScriptConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     lora: LoraConfig = field(default_factory=LoraConfig)
     data: DataConfig = field(default_factory=DataConfig)
+    generation: GenerationConfig = field(default_factory=GenerationConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     
     @classmethod

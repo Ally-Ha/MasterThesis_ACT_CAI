@@ -1,0 +1,166 @@
+# -----------------------
+# OS
+# -----------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~.nib
+ehthumbs.db
+Icon?
+
+# -----------------------
+# Python
+# -----------------------
+__pycache__/
+*.py[cod]
+*$py.class
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.cache/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+
+# Virtual envs
+venv/
+venv-*/
+ENV/
+env/
+.env/
+.venv/
+.conda/
+env.bak/
+venv.bak/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheelhouse/
+pip-wheel-metadata/
+
+# -----------------------
+# Jupyter / IPython
+# -----------------------
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+jupyter_kernel_config.py
+*.ipynb
+
+# -----------------------
+# Machine Learning / Models / Data
+# -----------------------
+# Model checkpoints and weights
+checkpoints/
+checkpoint/
+runs/
+outputs/
+output/
+models/
+model/
+models-*/
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.h5
+*.hdf5
+*.onnx
+
+# Training logs & caches
+logs/
+log/
+tensorboard/
+tb_logs/
+wandb/
+mlruns/
+mlflow/
+results/
+predictions/
+*.tfevents.*
+
+# Datasets and large files
+data/
+dataset/
+datasets/
+data_raw/
+data_processed/
+cache/
+cached/
+*.parquet
+*.csv
+*.sqlite
+*.db
+*.tar.gz
+*.zip
+
+# Hugging Face caches (repo-level)
+.cache/huggingface/
+.cache/torch/
+.cache/datasets/
+transformers_cache/
+hf_cache/
+hf_data/
+
+# Large file tracking
+*.gitattributes
+# (If using Git LFS, don't ignore .gitattributes; adjust accordingly)
+
+# -----------------------
+# Secrets & envs
+# -----------------------
+.env
+.env.*.local
+secrets/
+*.key
+*.pem
+*.crt
+
+# -----------------------
+# IDEs & editors
+# -----------------------
+.vscode/
+.idea/
+*.iml
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# -----------------------
+# Containers & build artifacts
+# -----------------------
+.Dockerfile.swp
+docker-compose.override.yml
+docker-compose.*.yml
+docker-compose.*.env
+build/
+tmp/
+temp/
+*.log
+
+# -----------------------
+# Misc
+# -----------------------
+coverage/
+*.coveragerc
+*.bak
+*.orig
+*.swp
+*.swo
+
+# End of file
