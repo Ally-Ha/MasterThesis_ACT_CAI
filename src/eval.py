@@ -7,7 +7,23 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
 from scipy import stats
+import nltk
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk import pos_tag
 
+# Ensure required NLTK data is available
+def _ensure_nltk_data():
+    """Download required NLTK data if not present."""
+    required = ['punkt', 'punkt_tab', 'averaged_perceptron_tagger', 
+                'averaged_perceptron_tagger_eng']
+    for resource in required:
+        try:
+            nltk.data.find(f'tokenizers/{resource}' if 'punkt' in resource 
+                          else f'taggers/{resource}')
+        except LookupError:
+            nltk.download(resource, quiet=True)
+
+_ensure_nltk_data()
 
 def get_pillar_columns() -> Dict[str, str]:
     """Return mapping of ACT-SQ pillar names to column names."""
@@ -178,3 +194,5 @@ def get_pos_distribution(text):
         'adj_ratio': adjs / total,
         'adv_ratio': advs / total
     }
+
+#def Saving Logic 

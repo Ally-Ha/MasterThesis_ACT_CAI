@@ -43,9 +43,9 @@ def get_model_and_tokenizer(
 
 def apply_peft(
     model: FastLanguageModel,
-    r: int = 16,
-    lora_alpha: int = 32,
-    lora_dropout: float = 0.05,
+    r: int = 64,  # MentalChat16K paper
+    lora_alpha: int = 16,  # MentalChat16K paper
+    lora_dropout: float = 0.1,  # MentalChat16K paper
     target_modules: list = None,
     bias: str = "none",
     use_gradient_checkpointing: str = "unsloth",

@@ -14,6 +14,18 @@ transformers>=4.53.3
 openai>=1.0.0
 trl>=0.19.1
 
+# pip install git+https://github.com/huggingface/llm-swarm.git
+llm-swarm
+
+# Azure AI (for safety evaluation)
+azure-ai-projects 
+azure-identity
+
+# NLP evaluation
+nltk>=3.8
+python-dotenv>=1.0.0
+scikit-learn>=1.3.0
+
 # Unsloth for efficient training
 unsloth[colab-new]>=2024.8
 

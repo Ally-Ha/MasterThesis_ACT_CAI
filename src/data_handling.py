@@ -12,7 +12,7 @@ def load_and_split_dataset(
     dataset_id: str,
     dataset_config: Optional[str] = None,
     dataset_split: str = "train",
-    test_split_size: int = 0,
+    test_split_size: float = 0.2,
     seed: int = 42,
     **kwargs
 ) -> DatasetDict:
@@ -23,7 +23,7 @@ def load_and_split_dataset(
         dataset_id: HuggingFace dataset ID
         dataset_config: Dataset configuration name
         dataset_split: Split to load
-        test_split_size: Number of examples for test split (0 = no split)
+        test_split_size: Fraction for test split (0.0 = no split, 0.2 = 20%)
         seed: Random seed for reproducibility
     
     Returns:

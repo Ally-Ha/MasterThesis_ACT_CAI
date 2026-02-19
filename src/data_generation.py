@@ -13,11 +13,17 @@ from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from .configs import GenerationConfig
-from .constitution import constitution
+from ..configs.configs import GenerationConfig
 
-# default 
+# default
 GEN_CFG = GenerationConfig()
+
+# Load the constitution from configs directory
+_const_path = Path(__file__).parent.parent / "configs" / "constitution.json"
+with open(_const_path, 'r') as f:
+    _data = json.load(f)
+principles = [c.get("principle", "").strip() for c in _data.get("constitutions", [])]
+constitution = "\n\n".join(f"{i+1}. {p}" for i, p in enumerate(principles))
 
 # Prompt templates (instruction text)
 PROMPT_GENERIC = (
@@ -45,18 +51,20 @@ def generate_response(
     input_text: str,
     cfg: GenerationConfig = GEN_CFG,
 ) -> object:
-    """Call OpenAI and return the raw response object."""
+    """Call OpenAI chat completions API and return the response object."""
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    return client.responses.create(
+    messages = [
+        {"role": "system", "content": instruction},
+        {"role": "user", "content": input_text}
+    ]
+
+    return client.chat.completions.create(
         model=cfg.model,
-        instructions=instruction,
-        input=input_text,
-        reasoning=cfg.reasoning_level,
-        text=cfg.verbosity_level,
+        messages=messages,
+        max_tokens=cfg.max_output_tokens,
         top_p=1,
-        max_output_tokens=cfg.max_output_tokens,
-        metadata=None,
+        temperature=0.7,
     )
 
 
@@ -70,6 +78,11 @@ def extract_metadata(
     """Return a dict with columns matching the target dataset schema."""
     now = datetime.utcnow().isoformat()
 
+    # Extract output from chat completions response
+    output_text = None
+    if hasattr(response, 'choices') and len(response.choices) > 0:
+        output_text = response.choices[0].message.content
+
     md = {
         "timestamp": now,
         "run_id": getattr(response, "id", None),
@@ -78,13 +91,13 @@ def extract_metadata(
         "verbosity_level": cfg.verbosity_level,
         "instruction": instruction,
         "input": input_text,
-        "output": getattr(response, "output_text", None),
+        "output": output_text,
     }
 
     try:
         usage = response.usage
-        md["tokens_input"] = usage.input_tokens
-        md["tokens_output"] = usage.output_tokens
+        md["tokens_input"] = usage.prompt_tokens
+        md["tokens_output"] = usage.completion_tokens
         md["tokens_total"] = usage.total_tokens
     except Exception:
         md.update({"tokens_input": None, "tokens_output": None, "tokens_total": None})

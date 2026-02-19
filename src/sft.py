@@ -6,14 +6,12 @@ import logging
 import os
 from typing import Optional, Dict, Any
 
-import optuna
-from optuna.visualization import plot_param_importances, plot_optimization_history
 from trl import SFTTrainer, SFTConfig
 from transformers import set_seed
 
 from .model import get_model_and_tokenizer, apply_peft
-from .data import load_and_split_dataset, prepare_dataset
-from .configs import SFTScriptConfig
+from .data_handling import load_and_split_dataset, prepare_dataset
+from ..configs.configs import SFTScriptConfig
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +23,15 @@ def create_training_args(
     gradient_accumulation_steps: int,
     num_train_epochs: int,
     max_seq_length: int,
-    eval_strategy: str = "epoch",
+    eval_strategy: str = "no",
     eval_steps: int = 100,
-    save_steps: int = 50,
-    logging_steps: int = 5,
-    warmup_ratio: float = 0.1,
+    save_steps: int = 100,
+    logging_steps: int = 10,
+    warmup_ratio: float = 0.03,  # MentalChat16K paper
     weight_decay: float = 0.01,
+    max_grad_norm: float = 0.3,  # MentalChat16K paper
     lr_scheduler_type: str = "cosine",
-    optim: str = "adamw_8bit",
+    optim: str = "paged_adamw_32bit",  # MentalChat16K paper
     bf16: bool = True,
     gradient_checkpointing: bool = True,
     save_total_limit: int = 2,
@@ -60,6 +59,7 @@ def create_training_args(
         logging_steps=logging_steps,
         warmup_ratio=warmup_ratio,
         weight_decay=weight_decay,
+        max_grad_norm=max_grad_norm,  # MentalChat16K paper
         lr_scheduler_type=lr_scheduler_type,
         optim=optim,
         bf16=bf16,
@@ -94,8 +94,7 @@ def create_trainer(
 
 
 def train(
-    config: SFTScriptConfig,
-    trial: Optional[optuna.Trial] = None,
+    config: SFTScriptConfig
 ) -> Dict[str, Any]:
     """
     Main training function.
@@ -108,20 +107,6 @@ def train(
         Dictionary with training results
     """
     set_seed(config.training.seed)
-    
-    # Override config with trial suggestions if doing HPO
-    if trial is not None:
-        config.training.learning_rate = trial.suggest_float(
-            "learning_rate", 1e-5, 5e-4, log=True
-        )
-        config.lora.r = trial.suggest_categorical("lora_r", [8, 16, 32, 64])
-        config.lora.lora_alpha = trial.suggest_categorical("lora_alpha", [16, 32, 64])
-        config.training.per_device_train_batch_size = trial.suggest_categorical(
-            "batch_size", [2, 4, 8]
-        )
-        config.training.gradient_accumulation_steps = trial.suggest_categorical(
-            "gradient_accumulation_steps", [2, 4, 8]
-        )
     
     # Load model and tokenizer
     model, tokenizer = get_model_and_tokenizer(
@@ -166,6 +151,7 @@ def train(
         logging_steps=config.training.logging_steps,
         warmup_ratio=config.training.warmup_ratio,
         weight_decay=config.training.weight_decay,
+        max_grad_norm=config.training.max_grad_norm,
         lr_scheduler_type=config.training.lr_scheduler_type,
         optim=config.training.optim,
         bf16=config.training.bf16,
@@ -202,37 +188,3 @@ def train(
         "tokenizer": tokenizer,
         "metrics": metrics,
     }
-
-
-def run_hpo(
-    config: SFTScriptConfig,
-    n_trials: int = 20,
-    study_name: str = "sft_hpo",
-) -> optuna.Study:
-    """
-    Run hyperparameter optimization with Optuna.
-    
-    Args:
-        config: Base configuration (will be modified per trial)
-        n_trials: Number of HPO trials
-        study_name: Name for the Optuna study
-    
-    Returns:
-        Completed Optuna study
-    """
-    def objective(trial: optuna.Trial) -> float:
-        result = train(config, trial=trial)
-        return result["metrics"].get("eval_loss", result["metrics"]["train_loss"])
-    
-    study = optuna.create_study(
-        study_name=study_name,
-        direction="minimize",
-        pruner=optuna.pruners.MedianPruner(),
-    )
-    
-    study.optimize(objective, n_trials=n_trials)
-    
-    logger.info(f"Best trial: {study.best_trial.params}")
-    logger.info(f"Best value: {study.best_value}")
-    
-    return study
