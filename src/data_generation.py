@@ -13,17 +13,10 @@ from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from ..configs.configs import GenerationConfig
+from .configs import GenerationConfig
 
 # default
 GEN_CFG = GenerationConfig()
-
-# Load the constitution from configs directory
-_const_path = Path(__file__).parent.parent / "configs" / "constitution.json"
-with open(_const_path, 'r') as f:
-    _data = json.load(f)
-principles = [c.get("principle", "").strip() for c in _data.get("constitutions", [])]
-constitution = "\n\n".join(f"{i+1}. {p}" for i, p in enumerate(principles))
 
 # Prompt templates (instruction text)
 PROMPT_GENERIC = (
@@ -36,10 +29,25 @@ PROMPT_GENERIC = (
     "Keep responses well-rounded, focused and concise, between 150-300 words."
 )
 
+constitution = """<constitution>
+For every response, you must follow these ACT principles exactly:
+
+- The response should increase willingness to experience emotions rather than attempting to control or eliminate them
+
+- The response should help the individual notice thoughts without believing or acting on them, recognizing thinking as an ongoing process rather than truth
+
+- The response should gently redirect from rumination about the past or worry about the future toward present-moment awareness and action
+
+- The response should help the individual adopt an observer perspective, noticing thoughts and feelings from a stable, continuous sense of self
+
+- The response should clarify the clients values as freely chosen directions for meaningful living
+
+- The response should encourage small, committed actions aligned with the users identified values
+</constitution>"""
+
 PROMPT_CONSTITUTION = (
     "You are a mental health counseling therapist specializing in "
     "Acceptance and Commitment Therapy (ACT).\n\n"
-    "Please comply with the following principles:\n\n"
     f"<Constitution>\n{constitution}\n</Constitution>\n\n"
     "Provide your therapeutic response in alignment with the ACT constitution above.\n"
     "Keep responses well-rounded, focused and concise, between 150-300 words."
@@ -62,9 +70,8 @@ def generate_response(
     return client.chat.completions.create(
         model=cfg.model,
         messages=messages,
-        max_tokens=cfg.max_output_tokens,
-        top_p=1,
-        temperature=0.7,
+        max_completion_tokens=cfg.max_completion_tokens,
+        reasoning={"effort": cfg.reasoning_level},
     )
 
 
@@ -110,6 +117,7 @@ CSV_FIELDNAMES = [
     "timestamp", "run_id", "model",
     "reasoning_level", "verbosity_level",
     "instruction", "input", "output",
+    "tokens_input", "tokens_output", "tokens_total",
 ]
 
 

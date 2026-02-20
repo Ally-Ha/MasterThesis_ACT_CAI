@@ -5,9 +5,12 @@ All hyperparameters follow MentalChat16K paper (Xu et al., 2025).
 from dataclasses import dataclass, field
 from typing import Optional, List
 
-
-# Model Presets - Only what differs per experiment
+# Model Presets - Datasets and Output Directory
 MODEL_PRESETS = {
+    "modelpilot":{
+        "dataset": "ShenLab/MentalChat16K",
+        "output_dir": "data/model_pilot-sft-llama-3.1-8b-instruct",
+    },
     "model0": {
         "dataset": "ShenLab/MentalChat16K",
         "output_dir": "data/model_0-sft-llama-3.1-8b-instruct",
@@ -69,17 +72,17 @@ class DataConfig:
 @dataclass
 class GenerationConfig:
     """Data generation configuration using OpenAI API."""
-    model: str = "gpt-4-turbo"
+    model: str = "gpt-5.1"
     reasoning_level: str = "medium"
     verbosity_level: str = "high"
-    max_output_tokens: int = 500
+    max_completion_tokens: int = 500
     delay: float = 0.3
     # HuggingFace Hub
-    hf_username: str = "your-hf-username"
+    hf_username: str = "AIforAlly"
     repo_generic: str = "mentalchat16k-generic-responses"
     repo_constitution: str = "mentalchat16k-constitution-responses"
     # Output paths
-    output_dir: str = "data/responses"
+    output_dir: str = "data/responses/working_files/"
     generic_csv: str = "response_generic.csv"
     constitution_csv: str = "response_constitution.csv"
 
@@ -104,7 +107,6 @@ class TrainingConfig:
     
     # Evaluation and saving
     eval_strategy: str = "no"  # No eval during training for reproduction
-    eval_steps: int = 100
     save_strategy: str = "steps"
     save_steps: int = 100
     save_total_limit: int = 2
@@ -121,7 +123,6 @@ class TrainingConfig:
     
     # Reporting
     report_to: List[str] = field(default_factory=lambda: ["wandb"])
-    
     seed: int = 42
 
 
@@ -155,7 +156,7 @@ class SFTScriptConfig:
         
         preset = MODEL_PRESETS[model_id]
         config = cls()
-        config.model.model_name_or_path = preset["model_name_or_path"]
+        config.data.dataset_id = preset["dataset"]
         config.training.output_dir = preset["output_dir"]
         return config
     

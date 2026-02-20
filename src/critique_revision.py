@@ -31,7 +31,9 @@ from transformers import AutoTokenizer
 @dataclass
 class CritiqueRevisionConfig:
     """All tuneable knobs for a critique-revision run."""
-    constitution_path: str = "src/constitution.json"
+    constitution_path: str = field(
+        default_factory=lambda: str(Path(__file__).parent.parent / "configs" / "constitution.json")
+    )
     tokenizer_name: str = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
     max_new_tokens: int = 1500
     temperature: float = 1.0
@@ -39,7 +41,7 @@ class CritiqueRevisionConfig:
     stop_sequences: List[str] = field(
         default_factory=lambda: ["User:", "###", "<|endoftext|>"]
     )
-    output_dir: str = "recipes/Data_Gen/final"
+    output_dir: str = "data"
     push_to_hub: bool = False
     repo_id: Optional[str] = None
     seed: int = 42
