@@ -15,6 +15,8 @@ from datasets import load_from_disk
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 
+from src.configs import OPENAI_API_VERSION
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -42,7 +44,7 @@ class ConstitutionalAI:
         self.constitution = json.load(open(cfg.constitution_path))["constitutions"]
         random.seed(cfg.seed)
         self.client = AzureOpenAI(
-            api_version="2024-12-01-preview",
+            api_version=OPENAI_API_VERSION,
             azure_endpoint=os.getenv("AZURE_AI_PROJECT_ENDPOINT"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         )

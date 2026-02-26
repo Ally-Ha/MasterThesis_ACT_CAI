@@ -4,6 +4,9 @@ All hyperparameters follow MentalChat16K paper (Xu et al., 2025).
 """
 from dataclasses import dataclass, field
 from typing import Optional, List
+from dotenv import load_dotenv
+
+load_dotenv(".env")
 
 # Model Presets - Datasets and Output Directory
 MODEL_PRESETS = {
@@ -71,8 +74,9 @@ class DataConfig:
 
 @dataclass
 class GenerationConfig:
-    """Data generation configuration using OpenAI API."""
+    """Data generation configuration using AZURE OpenAI API."""
     model: str = "gpt-5.1"
+    endpoint: str = "https://alina.openai.azure.com/"
     reasoning_level: str = "medium"
     verbosity_level: str = "high"
     max_completion_tokens: int = 500

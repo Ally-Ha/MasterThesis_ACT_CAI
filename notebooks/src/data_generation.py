@@ -11,11 +11,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from openai import OpenAI
+from openai import AzureOpenAI as OpenAI
 
-from .configs import GenerationConfig
+from dotenv import load_dotenv
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=ENV_PATH)
 
 # default
+from .configs import GenerationConfig
 GEN_CFG = GenerationConfig()
 
 # Prompt templates (instruction text)
@@ -60,7 +63,11 @@ def generate_response(
     cfg: GenerationConfig = GEN_CFG,
 ) -> object:
     """Call OpenAI chat completions API and return the response object."""
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.getenv("OPENAI_API_VERSION", "2024-12-01-preview"),
+    )
 
     messages = [
         {"role": "system", "content": instruction},
@@ -71,9 +78,7 @@ def generate_response(
         model=cfg.model,
         messages=messages,
         max_completion_tokens=cfg.max_completion_tokens,
-        reasoning={"effort": cfg.reasoning_level},
     )
-
 
 # Metadata to flat dict 
 def extract_metadata(
@@ -99,6 +104,7 @@ def extract_metadata(
         "instruction": instruction,
         "input": input_text,
         "output": output_text,
+        "batch_id": getattr(response, "batch_id", None),
     }
 
     try:
@@ -118,6 +124,7 @@ CSV_FIELDNAMES = [
     "reasoning_level", "verbosity_level",
     "instruction", "input", "output",
     "tokens_input", "tokens_output", "tokens_total",
+    "batch_id",
 ]
 
 
