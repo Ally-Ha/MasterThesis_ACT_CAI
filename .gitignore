@@ -59,7 +59,7 @@ pip-wheel-metadata/
 profile_default/
 ipython_config.py
 jupyter_kernel_config.py
-*.ipynb
+.ipynb
 
 # -----------------------
 # Machine Learning / Models / Data
@@ -70,7 +70,7 @@ checkpoint/
 runs/
 outputs/
 output/
-models/
+models/. 
 model/
 models-*/
 *.ckpt
