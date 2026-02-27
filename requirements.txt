@@ -11,27 +11,35 @@ tqdm
 python-dotenv
 PyYAML
 
-# NLP evaluation 
+# NLP evaluation
 nltk
 scikit-learn
 scipy
 
-# GPU / Training 
+# GPU / Training
 accelerate
 bitsandbytes
 peft
 sentencepiece
-transformers  
+transformers
 trl
 
-unsloth[colab-new] 
+# Unsloth – install from source on GPU machines:
+#   pip install "unsloth @ git+https://github.com/unslothai/unsloth.git"
+# For Colab:
+#   pip install "unsloth[colab] @ git+https://github.com/unslothai/unsloth.git"
 
-# Experiment tracking 
+# Experiment tracking
 wandb
 
 # Azure AI
 azure-ai-projects
 azure-identity
+azure-ai-ml
+
+# Visualization
+matplotlib
+seaborn
 
 # Utilities
 tensorboard

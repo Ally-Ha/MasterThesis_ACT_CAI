@@ -1,215 +1,161 @@
 """
-Critique-and-Revision data generation for Constitutional AI.
-Adapted from: https://github.com/huggingface/llm-swarm
-
-Columns produced per row:
-  - input              : original user query
-  - init_response      : original model output (from ds_constitution)
-  - critic_principle   : the principle text used
-  - critic_prompt      : the critique prompt sent
-  - critic_response    : the LLM critique
-  - revision_prompt    : the revision prompt sent
-  - revision_response  : the revised output
+Constitutional AI Critique-Revision Pipeline.
+Loads ds_constitution, applies N rounds of critique→revise using random principles.
 """
-import asyncio
+import os
 import json
 import random
-import time
-from collections import defaultdict
-from dataclasses import dataclass, field
+import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from typing import List, Dict, Any
 
 import pandas as pd
-from datasets import Dataset
-from huggingface_hub import AsyncInferenceClient
-from llm_swarm import LLMSwarm, LLMSwarmConfig
-from tqdm.asyncio import tqdm_asyncio
-from transformers import AutoTokenizer
+from datasets import load_from_disk
+from dotenv import load_dotenv
+from openai import AzureOpenAI
 
-#Config 
+from .configs import OPENAI_API_VERSION
+
+# Load environment variables from .env file
+load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+BASE_DIR = Path(__file__).parent.parent
+
+
 @dataclass
-class CritiqueRevisionConfig:
-    """All tuneable knobs for a critique-revision run."""
-    constitution_path: str = field(
-        default_factory=lambda: str(Path(__file__).parent.parent / "configs" / "constitution.json")
-    )
-    tokenizer_name: str = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
-    max_new_tokens: int = 1500
-    temperature: float = 1.0
-    max_samples: int = -1          # -1 = use all rows
-    stop_sequences: List[str] = field(
-        default_factory=lambda: ["User:", "###", "<|endoftext|>"]
-    )
-    output_dir: str = "data"
-    push_to_hub: bool = False
-    repo_id: Optional[str] = None
+class Config:
+    constitution_path: str = str(BASE_DIR / "configs" / "constitution.json")
+    dataset_path: str = str(BASE_DIR / "notebooks" / "data" / "responses" / "final" / "ds_constitution")
+    output_dir: str = "data/critique_revision/"
+    n_rounds: int = 3
+    max_completion_tokens: int = 16000
+    reasoning_effort: str = "medium"
+    max_samples: int = -1
     seed: int = 42
 
 
-async def _process_one(
-    idx: int,
-    user_input: str,
-    init_response: str,
-    constitutions: List[dict],
-    system_chat: List[dict],
-    client: AsyncInferenceClient,
-    tokenizer,
-    semaphore: asyncio.Semaphore,
-    cfg: CritiqueRevisionConfig,
-) -> Dict:
-    """Run critique → revision for a single (input, init_response) pair."""
-    chat = system_chat.copy()
-
-    # Seed the conversation with the original exchange
-    chat.append({"role": "user", "content": user_input})
-    chat.append({"role": "assistant", "content": init_response})
-
-    constitution = random.choice(constitutions)
-    row = {
-        "input": user_input,
-        "init_response": init_response,
-        "critic_principle": constitution.get("principle", ""),
-    }
-    token_length = 0
-
-    for prompt_text, prompt_key, response_key in [
-        (constitution["critic"], "critic_prompt", "critic_response"),
-        (constitution["revision"], "revision_prompt", "revision_response"),
-    ]:
-        async with semaphore:
-            chat.append({"role": "user", "content": prompt_text})
-            completion = await client.text_generation(
-                prompt=tokenizer.apply_chat_template(chat, tokenize=False),
-                max_new_tokens=cfg.max_new_tokens,
-                stop_sequences=cfg.stop_sequences,
-                temperature=cfg.temperature,
-            )
-            for stop_seq in cfg.stop_sequences:
-                if completion.endswith(stop_seq):
-                    completion = completion[: -len(stop_seq)].rstrip()
-            chat.append({"role": "assistant", "content": completion})
-            token_length += len(tokenizer.encode(completion))
-
-        row[prompt_key] = prompt_text
-        row[response_key] = completion
-
-    row["_token_length"] = token_length
-    row["_idx"] = idx
-    return row
-
-
-async def _run_pipeline(
-    inputs: List[str],
-    init_responses: List[str],
-    constitutions: List[dict],
-    system_chat: List[dict],
-    swarm_cfg: LLMSwarmConfig,
-    cfg: CritiqueRevisionConfig,
-) -> List[Dict]:
-    """Async entry point that spins up LLMSwarm and processes all rows."""
-    tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
-    tokenizer.add_special_tokens(
-        {"sep_token": "", "cls_token": "", "mask_token": "", "pad_token": "[PAD]"}
-    )
-
-    with LLMSwarm(swarm_cfg) as llm_swarm:
-        semaphore = asyncio.Semaphore(llm_swarm.suggested_max_parallel_requests)
-        client = AsyncInferenceClient(model=llm_swarm.endpoint)
-
-        tasks = [
-            _process_one(
-                idx=i,
-                user_input=inp,
-                init_response=resp,
-                constitutions=constitutions,
-                system_chat=system_chat,
-                client=client,
-                tokenizer=tokenizer,
-                semaphore=semaphore,
-                cfg=cfg,
-            )
-            for i, (inp, resp) in enumerate(zip(inputs, init_responses))
-        ]
-        print(
-            f"Launching critique-revision for {len(tasks)} rows …\n"
-            "NOTE: first batch may take a while as the multi-turn context is built."
+class ConstitutionalAI:
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self.constitution = json.load(open(cfg.constitution_path))["constitutions"]
+        random.seed(cfg.seed)
+        self.client = AzureOpenAI(
+            api_version=OPENAI_API_VERSION,
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         )
-        start = time.time()
-        results = await tqdm_asyncio.gather(*tasks)
-        elapsed = time.time() - start
-        total_tokens = sum(r["_token_length"] for r in results)
-        print(f"Done in {elapsed:.1f}s  |  {total_tokens / max(elapsed, 1):.0f} tok/s")
+        self.model = os.getenv("AZURE_AI_CRITIQUE_MODEL", "o4-mini")
 
-    return sorted(results, key=lambda r: r["_idx"])
-
-#build final dataset
-def _post_process(rows: List[Dict]) -> Dataset:
-    """Convert raw result dicts into a clean HF Dataset."""
-    for r in rows:
-        r.pop("_token_length", None)
-        r.pop("_idx", None)
-
-    ds = Dataset.from_list(rows)
-
-    def add_preference_cols(example):
+    def _call(self, messages: List[Dict]) -> Dict[str, Any]:
+        """Call reasoning model, return content + reasoning + usage."""
+        resp = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_completion_tokens=self.cfg.max_completion_tokens,
+            reasoning_effort=self.cfg.reasoning_effort,
+        )
         return {
-            "prompt": example["input"].strip(),
-            "messages": [
-                {"role": "user", "content": example["input"].strip()},
-                {"role": "assistant", "content": example["revision_response"].strip()},
-            ],
-            "chosen": [
-                {"role": "user", "content": example["input"].strip()},
-                {"role": "assistant", "content": example["revision_response"].strip()},
-            ],
-            "rejected": [
-                {"role": "user", "content": example["input"].strip()},
-                {"role": "assistant", "content": example["init_response"].strip()},
-            ],
+            "content": resp.choices[0].message.content,
+            "reasoning": getattr(resp.choices[0].message, "reasoning", None),
+            "usage": {"prompt": resp.usage.prompt_tokens, "completion": resp.usage.completion_tokens},
         }
 
-    return ds.map(add_preference_cols)
+    def critique_revise(self, user_input: str, response: str, principle: Dict, history: List[Dict]) -> Dict:
+        """Single critique→revise step for one principle."""
+        # Critique
+        crit_prompt = f"""Critique this response for ACT alignment.
+
+User: {user_input}
+Response: {response}
+Principle: {principle['principle']}
+
+{principle['critic']}"""
+        
+        history.append({"role": "user", "content": crit_prompt})
+        crit = self._call(history)
+        history.append({"role": "assistant", "content": crit["content"]})
+
+        # Revise
+        rev_prompt = f"""Revise based on the critique.
+
+{principle['revision']}
+
+Output ONLY the revised response."""
+        
+        history.append({"role": "user", "content": rev_prompt})
+        rev = self._call(history)
+        history.append({"role": "assistant", "content": rev["content"]})
+
+        return {
+            "principle": principle["principle"],
+            "critique": crit["content"],
+            "critique_reasoning": crit["reasoning"],
+            "revision": rev["content"],
+            "revision_reasoning": rev["reasoning"],
+        }
+
+    def process(self, user_input: str, init_response: str, row_idx: int) -> Dict:
+        """N rounds of critique-revision with random principle sampling."""
+        history = [
+            {"role": "system", "content": "You are a Constitutional AI assistant for ACT therapy."},
+            {"role": "user", "content": user_input},
+            {"role": "assistant", "content": init_response},
+        ]
+        
+        current = init_response
+        rounds = []
+        
+        for r in range(self.cfg.n_rounds):
+            principle = random.choice(self.constitution)
+            step = self.critique_revise(user_input, current, principle, history)
+            current = step["revision"]
+            rounds.append(step)
+            logger.info(f"  Round {r+1}: {principle['principle'][:50]}...")
+
+        return {
+            "row_idx": row_idx,
+            "input": user_input,
+            "init_response": init_response,
+            "revision_response": current,
+            "rounds": rounds,
+            "conversation": history,
+        }
 
 
-def run_critique_revision(
-    inputs: List[str],
-    init_responses: List[str],
-    cfg: CritiqueRevisionConfig = CritiqueRevisionConfig(),
-    swarm_cfg: LLMSwarmConfig = LLMSwarmConfig(
-        debug_endpoint="https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
-    ),
-) -> Dataset:
-    """
-    End-to-end critique-revision pipeline.
-
-    Args:
-        inputs: list of user queries.
-        init_responses: list of original model responses to critique.
-        cfg: CritiqueRevisionConfig with constitution path, generation params, etc.
-        swarm_cfg: LLMSwarmConfig – set ``debug_endpoint`` for quick runs
-                   or configure Slurm for large-scale generation.
-
-    Returns:
-        HuggingFace Dataset with all intermediate columns plus
-        ``chosen`` / ``rejected`` preference pairs.
-    """
-    random.seed(cfg.seed)
-
-    with open(cfg.constitution_path) as f:
-        data = json.load(f)
-    constitutions = data["constitutions"]
-    system_chat = [
-        msg for sublist in data.get("system_chat", []) for msg in sublist
-    ]
-
-    n = len(inputs)
+def run_pipeline(cfg: Config = None, output_file: str = "cai_results") -> List[Dict]:
+    """Run CAI pipeline on ds_constitution dataset."""
+    cfg = cfg or Config()
+    ds = load_from_disk(cfg.dataset_path)
     if cfg.max_samples > 0:
-        n = min(n, cfg.max_samples)
-    inputs = inputs[:n]
-    init_responses = init_responses[:n]
+        ds = ds.select(range(min(cfg.max_samples, len(ds))))
+    
+    cai = ConstitutionalAI(cfg)
+    results = []
+    
+    for i, sample in enumerate(ds):
+        logger.info(f"Processing {i+1}/{len(ds)}")
+        results.append(cai.process(sample["input"], sample["output"], sample["row_idx"]))
+    
+    # Save outputs
+    out_dir = Path(cfg.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    with open(out_dir / f"{output_file}_traces.json", "w") as f:
+        json.dump(results, f, indent=2, default=str)
+    
+    # SFT + preference data
+    sft = [{"prompt": r["input"], "response": r["revision_response"]} for r in results]
+    pref = [{"prompt": r["input"], "chosen": r["revision_response"], "rejected": r["init_response"]} for r in results]
+    pd.DataFrame(sft).to_json(out_dir / f"{output_file}_sft.jsonl", orient="records", lines=True)
+    pd.DataFrame(pref).to_json(out_dir / f"{output_file}_pref.jsonl", orient="records", lines=True)
+    
+    logger.info(f"Saved {len(results)} results to {out_dir}")
+    return results
 
-    raw_results = asyncio.run(
-        _run_pipeline(inputs, init_responses, constitutions, system_chat, swarm_cfg, cfg)
-    )
-    return _post_process(raw_results)
+
+if __name__ == "__main__":
+    results = run_pipeline(Config(n_rounds=3, max_samples=5))

@@ -2,11 +2,15 @@
 Configuration dataclasses following alignment-handbook pattern.
 All hyperparameters follow MentalChat16K paper (Xu et al., 2025).
 """
+import os
 from dataclasses import dataclass, field
 from typing import Optional, List
 from dotenv import load_dotenv
 
 load_dotenv(".env")
+
+# Azure OpenAI API version
+OPENAI_API_VERSION = os.getenv("OPENAI_API_VERSION", "2025-04-01-preview")
 
 # Model Presets - Datasets and Output Directory
 MODEL_PRESETS = {
@@ -75,12 +79,10 @@ class DataConfig:
 @dataclass
 class GenerationConfig:
     """Data generation configuration using AZURE OpenAI API."""
-    model: str = "gpt-5.1"
-    endpoint: str = "https://alina.openai.azure.com/"
-    reasoning_level: str = "medium"
-    verbosity_level: str = "high"
-    max_completion_tokens: int = 500
-    delay: float = 0.3
+    model: str = "o3-mini"
+    reasoning_level: str = "medium"       # "low" | "medium" | "high"
+    reasoning_summary: str = "concise"    # "auto" | "concise" | "detailed" | "none"
+    max_completion_tokens: int = 1500     # includes reasoning tokens; raise if truncated
     # HuggingFace Hub
     hf_username: str = "AIforAlly"
     repo_generic: str = "mentalchat16k-generic-responses"
@@ -127,6 +129,17 @@ class TrainingConfig:
     
     # Reporting
     report_to: List[str] = field(default_factory=lambda: ["wandb"])
+    seed: int = 42
+
+
+@dataclass
+class EvalConfig:
+    """AI-as-Judge evaluation configuration (Claude-Opus via Azure AI)."""
+    model: str = "claude-opus"
+    max_tokens: int = 4096
+    temperature: float = 0.0
+    output_dir: str = "data/evaluations/"
+    n_samples: int = -1  # -1 = evaluate all
     seed: int = 42
 
 

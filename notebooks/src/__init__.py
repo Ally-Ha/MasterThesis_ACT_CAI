@@ -10,11 +10,14 @@ import importlib as _importlib
 
 # ── Always-safe imports (no GPU / torch / unsloth needed) ──────────────
 from .configs import (
+    MODEL_PRESETS,
+    OPENAI_API_VERSION,
     ModelConfig,
     LoraConfig,
     DataConfig,
     GenerationConfig,
     TrainingConfig,
+    EvalConfig,
     SFTScriptConfig,
 )
 
@@ -51,6 +54,14 @@ _LAZY_MAP = {
     "create_training_args":    _lazy(".sft.create_training_args"),
     "create_trainer":          _lazy(".sft.create_trainer"),
     "train":                   _lazy(".sft.train"),
+    # .eval
+    "run_ai_judge":            _lazy(".eval.run_ai_judge"),
+    "evaluate_single":         _lazy(".eval.evaluate_single"),
+    "parse_ratings":           _lazy(".eval.parse_ratings"),
+    "build_judge_prompt":      _lazy(".eval.build_judge_prompt"),
+    "get_pillar_columns":      _lazy(".eval.get_pillar_columns"),
+    "compute_agreement_metrics": _lazy(".eval.compute_agreement_metrics"),
+    "compute_text_statistics": _lazy(".eval.compute_text_statistics"),
 }
 
 
@@ -62,11 +73,14 @@ def __getattr__(name: str):
 
 __all__ = [
     # Configs
+    "MODEL_PRESETS",
+    "OPENAI_API_VERSION",
     "ModelConfig",
     "LoraConfig",
     "DataConfig",
     "GenerationConfig",
     "TrainingConfig",
+    "EvalConfig",
     "SFTScriptConfig",
     # Data
     "load_and_split_dataset",
@@ -82,6 +96,13 @@ __all__ = [
     "create_trainer",
     "train",
     # Evaluation
+    "run_ai_judge",
+    "evaluate_single",
+    "parse_ratings",
+    "build_judge_prompt",
+    "get_pillar_columns",
+    "compute_agreement_metrics",
+    "compute_text_statistics",
     "AI_JUDGE_PROMPT",
     "ACT_SQ",
     "MentalHealth16K_Metrics",
